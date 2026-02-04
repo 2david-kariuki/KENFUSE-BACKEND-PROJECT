@@ -29,7 +29,7 @@ end
 # unset irrelevant variables
 deactivate nondestructive
 
-set -gx VIRTUAL_ENV "/home/macharia/moringa-school-work/kenfuse-project/kenfuse-backend/venv"
+set -gx VIRTUAL_ENV "/home/macharia/moringa-school-work/kefuse-project-frontend/kenfuse-frontend/KENFUSE-BACKEND-PROJECT/venv"
 
 set -gx _OLD_VIRTUAL_PATH $PATH
 set -gx PATH "$VIRTUAL_ENV/bin" $PATH

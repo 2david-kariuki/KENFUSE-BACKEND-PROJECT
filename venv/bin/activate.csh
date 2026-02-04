@@ -8,7 +8,7 @@ alias deactivate 'test $?_OLD_VIRTUAL_PATH != 0 && setenv PATH "$_OLD_VIRTUAL_PA
 # Unset irrelevant variables.
 deactivate nondestructive
 
-setenv VIRTUAL_ENV "/home/macharia/moringa-school-work/kenfuse-project/kenfuse-backend/venv"
+setenv VIRTUAL_ENV "/home/macharia/moringa-school-work/kefuse-project-frontend/kenfuse-frontend/KENFUSE-BACKEND-PROJECT/venv"
 
 set _OLD_VIRTUAL_PATH="$PATH"
 setenv PATH "$VIRTUAL_ENV/bin:$PATH"

@@ -1,0 +1,166 @@
+
+from flask import Blueprint, request, jsonify, send_filefrom flask_jwt_extended import jwt_required, get_jwt_identity
+from flask import current_app
+from app.models import Memorial
+# 
+from app.pdf_utils import PDFGenerator
+from io import BytesIO
+
+memorials_bp = Blueprint('memorials', __name__)
+
+@memorials_bp.route('/memorials', methods=['GET'])
+@jwt_required()
+def get_memorials():
+    """Get all memorials for the current user"""
+    current_user_id = get_jwt_identity()
+    
+    memorials = Memorial.query.filter_by(user_id=current_user_id).all()
+    
+    return jsonify([{
+        'id': memorial.id,
+        'title': memorial.title,
+        'name': memorial.name,
+        'birth_date': memorial.birth_date.isoformat() if memorial.birth_date else None,
+        'death_date': memorial.death_date.isoformat() if memorial.death_date else None,
+        'biography': memorial.biography,
+        'created_at': memorial.created_at.isoformat()
+    } for memorial in memorials]), 200
+
+@memorials_bp.route('/memorials', methods=['POST'])
+@jwt_required()
+def create_memorial():
+    """Create a new memorial"""
+    current_user_id = get_jwt_identity()
+    data = request.get_json()
+    
+    if not data.get('title') or not data.get('name'):
+        return jsonify({'error': 'Title and name are required'}), 400
+    
+    memorial = Memorial(
+        user_id=current_user_id,
+        title=data['title'],
+        name=data['name'],
+        birth_date=data.get('birth_date'),
+        death_date=data.get('death_date'),
+        biography=data.get('biography')
+    )
+    
+    db.session.add(memorial)
+    db.session.commit()
+    
+    return jsonify({
+        'id': memorial.id,
+        'title': memorial.title,
+        'name': memorial.name,
+        'birth_date': memorial.birth_date.isoformat() if memorial.birth_date else None,
+        'death_date': memorial.death_date.isoformat() if memorial.death_date else None,
+        'biography': memorial.biography,
+        'created_at': memorial.created_at.isoformat()
+    }), 201
+
+@memorials_bp.route('/memorials/<int:memorial_id>', methods=['GET'])
+@jwt_required()
+def get_memorial(memorial_id):
+    """Get a specific memorial"""
+    current_user_id = get_jwt_identity()
+    
+    memorial = Memorial.query.filter_by(id=memorial_id, user_id=current_user_id).first()
+    
+    if not memorial:
+        return jsonify({'error': 'Memorial not found'}), 404
+    
+    return jsonify({
+        'id': memorial.id,
+        'title': memorial.title,
+        'name': memorial.name,
+        'birth_date': memorial.birth_date.isoformat() if memorial.birth_date else None,
+        'death_date': memorial.death_date.isoformat() if memorial.death_date else None,
+        'biography': memorial.biography,
+        'created_at': memorial.created_at.isoformat()
+    }), 200
+
+@memorials_bp.route('/memorials/<int:memorial_id>', methods=['PUT'])
+@jwt_required()
+def update_memorial(memorial_id):
+    """Update a memorial"""
+    current_user_id = get_jwt_identity()
+    data = request.get_json()
+    
+    memorial = Memorial.query.filter_by(id=memorial_id, user_id=current_user_id).first()
+    
+    if not memorial:
+        return jsonify({'error': 'Memorial not found'}), 404
+    
+    if 'title' in data:
+        memorial.title = data['title']
+    if 'name' in data:
+        memorial.name = data['name']
+    if 'birth_date' in data:
+        memorial.birth_date = data['birth_date']
+    if 'death_date' in data:
+        memorial.death_date = data['death_date']
+    if 'biography' in data:
+        memorial.biography = data['biography']
+    
+    db.session.commit()
+    
+    return jsonify({
+        'id': memorial.id,
+        'title': memorial.title,
+        'name': memorial.name,
+        'birth_date': memorial.birth_date.isoformat() if memorial.birth_date else None,
+        'death_date': memorial.death_date.isoformat() if memorial.death_date else None,
+        'biography': memorial.biography,
+        'created_at': memorial.created_at.isoformat()
+    }), 200
+
+@memorials_bp.route('/memorials/<int:memorial_id>', methods=['DELETE'])
+@jwt_required()
+def delete_memorial(memorial_id):
+    """Delete a memorial"""
+    current_user_id = get_jwt_identity()
+    
+    memorial = Memorial.query.filter_by(id=memorial_id, user_id=current_user_id).first()
+    
+    if not memorial:
+        return jsonify({'error': 'Memorial not found'}), 404
+    
+    db.session.delete(memorial)
+    db.session.commit()
+    
+    return jsonify({'message': 'Memorial deleted successfully'}), 200
+
+@memorials_bp.route('/memorials/<int:memorial_id>/pdf', methods=['GET'])
+@jwt_required()
+def generate_memorial_pdf(memorial_id):
+    """Generate a PDF for a memorial"""
+    current_user_id = get_jwt_identity()
+    
+    memorial = Memorial.query.filter_by(id=memorial_id, user_id=current_user_id).first()
+    
+    if not memorial:
+        return jsonify({'error': 'Memorial not found'}), 404
+    
+    # Prepare data for PDF generation
+    memorial_data = {
+        'title': memorial.title,
+        'name': memorial.name,
+        'birth_date': memorial.birth_date.isoformat() if memorial.birth_date else None,
+        'death_date': memorial.death_date.isoformat() if memorial.death_date else None,
+        'biography': memorial.biography
+    }
+    
+    # Generate PDF
+    pdf_content = PDFGenerator.generate_memorial_pdf(memorial_data)
+    
+    # Create BytesIO object from PDF content
+    pdf_file = BytesIO(pdf_content)
+    pdf_file.seek(0)
+    
+    # Send the PDF as a file download
+    return send_file(
+        pdf_file,
+        as_attachment=True,
+        download_name=f'memorial_{memorial_id}.pdf',
+        mimetype='application/pdf'
+    )

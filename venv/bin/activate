@@ -37,7 +37,7 @@ deactivate () {
 # unset irrelevant variables
 deactivate nondestructive
 
-VIRTUAL_ENV="/home/macharia/moringa-school-work/kenfuse-project/kenfuse-backend/venv"
+VIRTUAL_ENV="/home/macharia/moringa-school-work/kefuse-project-frontend/kenfuse-frontend/KENFUSE-BACKEND-PROJECT/venv"
 export VIRTUAL_ENV
 
 _OLD_VIRTUAL_PATH="$PATH"

@@ -1,4 +1,4 @@
-#!/home/macharia/moringa-school-work/kenfuse-project/kenfuse-backend/venv/bin/python3
+#!/home/macharia/moringa-school-work/kefuse-project-frontend/kenfuse-frontend/KENFUSE-BACKEND-PROJECT/venv/bin/python3
 
 # http://www.python.org/doc/2.4.4/lib/module-itertools.html
 import itertools

@@ -3,72 +3,121 @@ from flask_jwt_extended import jwt_required, get_jwt_identity
 from app import db
 from app.models import Will, User
 from io import BytesIO
+from fpdf import FPDF
 import os
 
 wills_bp = Blueprint('wills', __name__)
 
-def generate_simple_pdf(will, user):
-    """Generate a simple text PDF"""
+
+class WillPDF(FPDF):
+    def header(self):
+        self.set_font('Arial', 'B', 12)
+        self.cell(0, 10, 'KENFUSE - End of Life Planning Platform', 0, 1, 'C')
+        self.ln(5)
+    
+    def footer(self):
+        self.set_y(-15)
+        self.set_font('Arial', 'I', 8)
+        self.cell(0, 10, f'Page {self.page_no()}', 0, 0, 'C')
+
+
+def generate_will_pdf(will, user):
+    """Generate a real PDF for a will"""
     from datetime import datetime
     
-    content = f"""
-    KENFUSE - End of Life Planning Platform
-    {'=' * 50}
+    pdf = WillPDF()
+    pdf.add_page()
+    pdf.set_auto_page_break(auto=True, margin=15)
     
-    LAST WILL AND TESTAMENT
-    {'=' * 50}
+    # Title
+    pdf.set_font('Arial', 'B', 16)
+    pdf.cell(0, 10, 'LAST WILL AND TESTAMENT', 0, 1, 'C')
+    pdf.ln(5)
+    pdf.line(10, pdf.get_y(), 200, pdf.get_y())
+    pdf.ln(10)
     
-    Testator Information:
-    Name: {user.first_name} {user.last_name}
-    Email: {user.email}
-    Phone: {user.phone}
+    # Testator Information
+    pdf.set_font('Arial', 'B', 12)
+    pdf.cell(0, 10, 'TESTATOR INFORMATION', 0, 1)
+    pdf.set_font('Arial', '', 11)
+    pdf.cell(0, 8, f"Name: {user.first_name} {user.last_name}", 0, 1)
+    pdf.cell(0, 8, f"Email: {user.email}", 0, 1)
+    if user.phone:
+        pdf.cell(0, 8, f"Phone: {user.phone}", 0, 1)
+    pdf.ln(5)
     
-    Will Details:
-    Title: {will.title}
-    Created: {will.created_at.strftime('%d %B, %Y')}
-    Status: {will.status}
-    Document ID: {will.id[:8].upper()}
+    # Will Details
+    pdf.set_font('Arial', 'B', 12)
+    pdf.cell(0, 10, 'WILL DETAILS', 0, 1)
+    pdf.set_font('Arial', '', 11)
+    pdf.cell(0, 8, f"Title: {will.title}", 0, 1)
+    pdf.cell(0, 8, f"Created: {will.created_at.strftime('%d %B, %Y')}", 0, 1)
+    pdf.cell(0, 8, f"Status: {will.status.upper()}", 0, 1)
+    pdf.cell(0, 8, f"Document ID: {str(will.id)[:8].upper()}", 0, 1)
+    pdf.ln(10)
     
-    Declaration:
-    I, {user.first_name} {user.last_name}, being of sound mind and memory,
-    do hereby make, publish, and declare this to be my Last Will and Testament,
-    hereby revoking all former Wills and Codicils by me made.
+    # Declaration
+    pdf.set_font('Arial', 'B', 12)
+    pdf.cell(0, 10, 'DECLARATION', 0, 1)
+    pdf.set_font('Arial', '', 11)
+    declaration = (f"I, {user.first_name} {user.last_name}, being of sound mind and memory, "
+                   f"do hereby make, publish, and declare this to be my Last Will and Testament, "
+                   f"hereby revoking all former Wills and Codicils by me made.")
+    pdf.multi_cell(0, 8, declaration)
+    pdf.ln(10)
     
-    Will Content:
-    {will.content}
-    """
+    # Will Content
+    pdf.set_font('Arial', 'B', 12)
+    pdf.cell(0, 10, 'WILL CONTENT', 0, 1)
+    pdf.set_font('Arial', '', 11)
+    pdf.multi_cell(0, 8, will.content or 'No content provided.')
+    pdf.ln(10)
     
+    # Beneficiaries
     if will.beneficiaries:
-        content += "\n\nBeneficiaries:\n"
+        pdf.set_font('Arial', 'B', 12)
+        pdf.cell(0, 10, 'BENEFICIARIES', 0, 1)
+        pdf.set_font('Arial', '', 11)
         for beneficiary in will.beneficiaries:
-            content += f"- {beneficiary.get('name', 'N/A')} ({beneficiary.get('relationship', 'N/A')}): {beneficiary.get('share', 'N/A')}\n"
+            name = beneficiary.get('name', 'N/A')
+            relationship = beneficiary.get('relationship', 'N/A')
+            share = beneficiary.get('share', 'N/A')
+            pdf.cell(0, 8, f"- {name} ({relationship}): {share}", 0, 1)
+        pdf.ln(10)
     
-    content += f"""
+    # Signatures
+    pdf.add_page()
+    pdf.set_font('Arial', 'B', 12)
+    pdf.cell(0, 10, 'SIGNATURES', 0, 1)
+    pdf.ln(10)
     
-    {'=' * 50}
-    Signatures
+    pdf.set_font('Arial', '', 11)
+    pdf.cell(0, 8, 'Testator:', 0, 1)
+    pdf.cell(0, 15, '_' * 50, 0, 1)
+    pdf.cell(0, 8, f"{user.first_name} {user.last_name}", 0, 1)
+    pdf.cell(0, 8, f"Date: _______________", 0, 1)
+    pdf.ln(15)
     
-    Testator:
-    _________________________
-    {user.first_name} {user.last_name}
-    Date: ___________________
+    pdf.cell(0, 8, 'Witness 1:', 0, 1)
+    pdf.cell(0, 15, '_' * 50, 0, 1)
+    pdf.cell(0, 8, 'Name: _________________________', 0, 1)
+    pdf.cell(0, 8, 'ID: ___________________________', 0, 1)
+    pdf.ln(15)
     
-    Witness 1:
-    _________________________
-    Signature: _____________
-    ID: ____________________
+    pdf.cell(0, 8, 'Witness 2:', 0, 1)
+    pdf.cell(0, 15, '_' * 50, 0, 1)
+    pdf.cell(0, 8, 'Name: _________________________', 0, 1)
+    pdf.cell(0, 8, 'ID: ___________________________', 0, 1)
     
-    Witness 2:
-    _________________________
-    Signature: _____________
-    ID: ____________________
+    # Footer info
+    pdf.set_y(-30)
+    pdf.set_font('Arial', 'I', 8)
+    pdf.cell(0, 5, f"Generated by KENFUSE on {datetime.utcnow().strftime('%Y-%m-%d %H:%M')}", 0, 1, 'C')
+    pdf.cell(0, 5, f"Document ID: {will.id}", 0, 1, 'C')
     
-    {'=' * 50}
-    Generated by KENFUSE on {datetime.utcnow().strftime('%Y-%m-%d %H:%M')}
-    Document ID: {will.id}
-    """
-    
-    return content.encode('utf-8')
+    # Return PDF as bytes
+    return pdf.output(dest='S').encode('latin-1')
+
 
 @wills_bp.route('/', methods=['POST'])
 @jwt_required()
@@ -107,6 +156,7 @@ def create_will():
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
+
 @wills_bp.route('/', methods=['GET'])
 @jwt_required()
 def get_wills():
@@ -123,6 +173,7 @@ def get_wills():
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
+
 @wills_bp.route('/<will_id>/pdf', methods=['GET'])
 @jwt_required()
 def export_will_pdf(will_id):
@@ -135,26 +186,27 @@ def export_will_pdf(will_id):
         if not will or not user:
             return jsonify({'error': 'Will not found'}), 404
         
-        # Generate simple PDF
-        pdf_content = generate_simple_pdf(will, user)
+        # Generate real PDF
+        pdf_content = generate_will_pdf(will, user)
         
         # Create BytesIO buffer
         buffer = BytesIO(pdf_content)
         buffer.seek(0)
         
-        # Generate filename
-        filename = f"kenfuse_will_{will.title.replace(' ', '_')}.txt"
+        # Generate filename with .pdf extension
+        filename = f"kenfuse_will_{will.title.replace(' ', '_')}.pdf"
         
-        # Return as downloadable file
+        # Return as downloadable PDF
         return send_file(
             buffer,
             as_attachment=True,
             download_name=filename,
-            mimetype='text/plain'
+            mimetype='application/pdf'
         )
         
     except Exception as e:
         return jsonify({'error': str(e)}), 500
+
 
 @wills_bp.route('/test-pdf', methods=['GET'])
 def test_pdf():
@@ -162,35 +214,26 @@ def test_pdf():
     try:
         from datetime import datetime
         
-        content = f"""
-        KENFUSE TEST DOCUMENT
-        {'=' * 50}
+        pdf = FPDF()
+        pdf.add_page()
+        pdf.set_font('Arial', 'B', 16)
+        pdf.cell(0, 10, 'KENFUSE TEST PDF', 0, 1, 'C')
+        pdf.ln(10)
+        pdf.set_font('Arial', '', 12)
+        pdf.cell(0, 10, f'Generated: {datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S")}', 0, 1)
+        pdf.ln(5)
+        pdf.multi_cell(0, 10, 'This is a test PDF document from KENFUSE.')
         
-        This is a test PDF document.
-        
-        Generated: {datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S')}
-        
-        Features:
-        - Will management
-        - Memorial creation
-        - Fundraising
-        - Vendor marketplace
-        
-        {'=' * 50}
-        End of test document
-        """
-        
-        buffer = BytesIO(content.encode('utf-8'))
+        pdf_content = pdf.output(dest='S').encode('latin-1')
+        buffer = BytesIO(pdf_content)
         buffer.seek(0)
         
         return send_file(
             buffer,
             as_attachment=True,
-            download_name="kenfuse_test_document.txt",
-            mimetype='text/plain'
+            download_name="kenfuse_test.pdf",
+            mimetype='application/pdf'
         )
         
     except Exception as e:
         return jsonify({'error': str(e)}), 500
-
-# Other routes remain the same...

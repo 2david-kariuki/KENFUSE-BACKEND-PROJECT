@@ -3,12 +3,14 @@ from flask_sqlalchemy import SQLAlchemy
 from flask_jwt_extended import JWTManager
 from flask_cors import CORS
 from flask_migrate import Migrate
+from flask_bcrypt import Bcrypt  # ADD THIS LINE
 import os
 
 # Initialize extensions
 db = SQLAlchemy()
 jwt = JWTManager()
 migrate = Migrate()
+bcrypt = Bcrypt()  # ADD THIS LINE
 
 def create_app():
     app = Flask(__name__)
@@ -24,6 +26,7 @@ def create_app():
     db.init_app(app)
     jwt.init_app(app)
     migrate.init_app(app, db)
+    bcrypt.init_app(app)  # ADD THIS LINE
     
     # Register blueprints
     from app.routes.auth import auth_bp
